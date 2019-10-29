@@ -5,7 +5,7 @@
   "main": "app.js",
   "dependencies": {
     "express": "^4.15.3",
-    "mongoose": "^4.11.4",
+    "mongoose": "^5.7.7",
     "socket.io": "^2.0.3"
   },
   "devDependencies": {},
