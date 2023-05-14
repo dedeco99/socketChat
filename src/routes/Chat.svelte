@@ -1,6 +1,7 @@
 <script>
 	import { io } from "socket.io-client";
 
+	let animate = false;
 	let messages = [];
 	let message = "";
 	let handle = "";
@@ -21,6 +22,11 @@
 		messages = [...messages, message];
 
 		isTyping = isTyping.filter(u => u !== message.handle);
+
+		animate = false;
+		setTimeout(() => (animate = true), 100);
+
+		goToEndOfChat();
 	});
 
 	function sendIsTyping(e) {
@@ -37,70 +43,139 @@
 
 		message = "";
 		isTypingSent = false;
+
+		goToEndOfChat();
+	}
+
+	function goToEndOfChat() {
+		setTimeout(() => {
+			const chat = document.getElementById("chat");
+			chat.scrollTop = chat.scrollHeight;
+		}, 10);
 	}
 </script>
 
-<div id="chat">
-	<h2>Chat</h2>
-	<div id="chat-window">
-		<ul>
-			{#each messages as message}
-				<li>{message.handle}: {message.message}</li>
-			{/each}
-		</ul>
+<div id="chat" class="chatContainer">
+	<div class="chat">
+		{#each messages as message, index}
+			<div
+				class="message {index === messages.length - 1 && animate ? 'animate' : ''} {message.handle === handle
+					? 'right'
+					: ''}"
+			>
+				{message.handle}: {message.message}
+			</div>
+		{/each}
 	</div>
-	<div id="feedback">
-		{#if isTyping.length}
-			{isTyping.join(", ")}
-			{#if isTyping.length > 1} are {:else} is{/if} typing
-		{/if}
-	</div>
-	<form on:submit={sendMessage}>
-		<input id="handle" type="text" placeholder="Handle" bind:value={handle} />
-		<input id="message" type="text" placeholder="Message" bind:value={message} on:keyup={sendIsTyping} />
-		<button id="send">Send</button>
-	</form>
 </div>
+<form class="promptContainer" on:submit={sendMessage}>
+	<input id="handle" class="prompt" type="text" placeholder="Handle" bind:value={handle} />
+	<input
+		id="message"
+		class="prompt"
+		type="text"
+		placeholder="Message"
+		bind:value={message}
+		on:keyup={sendIsTyping}
+	/>
+	<button type="submit">Send</button>
+</form>
+{#if isTyping.length}
+	{isTyping.join(", ")}
+	{#if isTyping.length > 1} are {:else} is{/if} typing
+{/if}
 
-<style>
-	#chat {
-		max-width: 600px;
-		margin: 30px auto;
-		border: 1px solid #ddd;
-		box-shadow: 1px 3px 5px rgba(0, 0, 0, 0.05);
-		border-radius: 2px;
+<style lang="scss">
+	@mixin containerBox {
+		width: 600px;
+		background: #444;
+		border-radius: 5px;
+		margin: 5px 0px;
 	}
 
-	#chat-window {
-		height: 400px;
+	.chatContainer {
+		@include containerBox;
+
+		height: 100%;
 		overflow: auto;
+		display: flex;
+		justify-content: flex-end;
+
+		.chat {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
+			padding: 0px 10px;
+			overflow: hidden;
+
+			.message {
+				align-self: flex-start;
+				opacity: 0;
+				background: #333;
+				border-radius: 5px;
+				padding: 10px;
+				margin: 10px 0px;
+				font-size: 0.85em;
+				transition: background 250ms ease-in-out;
+
+				&.right {
+					align-self: flex-end;
+					background-color: #555;
+				}
+
+				&.animate {
+					opacity: 1;
+					animation: drop 1s ease-in-out forwards, fadeIn 500ms ease-in;
+				}
+
+				&:not(:last-child) {
+					opacity: 1;
+				}
+
+				&:hover {
+					background: #555;
+				}
+			}
+		}
 	}
 
-	label {
-		box-sizing: border-box;
-		display: block;
-		padding: 10px 20px;
+	.promptContainer {
+		display: flex;
+		align-items: center;
+		position: relative;
+
+		input {
+			@include containerBox;
+
+			color: white;
+			font-size: 1.25em;
+			margin-right: 10px;
+		}
+
+		.prompt {
+			width: var(--width);
+		}
 	}
 
-	input {
-		padding: 10px 20px;
-		box-sizing: border-box;
-		background: #142634;
-		color: white;
-		border: 0;
-		display: block;
-		width: 100%;
-		border-bottom: 1px solid #eee;
-		font-family: Nunito;
-		font-size: 16px;
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
-	button {
-		background: #ddca7e;
-		font-size: 18px;
-		border: 0;
-		padding: 12px 0;
-		width: 100%;
-		border-radius: 0 0 2px 2px;
+	@keyframes drop {
+		0% {
+			transform: translateY(100%);
+		}
+		50% {
+			transform: translateY(5%);
+		}
+		100% {
+			transform: translateY(0%);
+		}
 	}
 </style>
