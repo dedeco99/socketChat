@@ -6,8 +6,8 @@ export default function injectSocketIO(server) {
 	io.on("connection", socket => {
 		console.log("Connected", socket.id);
 
-		socket.on("typing", user => {
-			socket.broadcast.emit("typing", user);
+		socket.on("typing", data => {
+			socket.broadcast.emit("typing", data);
 		});
 
 		socket.on("message", message => {

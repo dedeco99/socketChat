@@ -5,31 +5,38 @@
 	let message = "";
 	let handle = "";
 	let isTyping = [];
+	let isTypingSent = false;
 
 	const socket = io();
 
-	socket.on("typing", user => {
-		console.log(user, isTyping.includes(user));
-
-		isTyping = isTyping.includes(user) ? isTyping.filter(u => u !== user) : [...isTyping, user];
-		console.log(isTyping);
+	socket.on("typing", data => {
+		if (data.isTyping) {
+			if (!isTyping.includes(data.handle)) isTyping = [...isTyping, data.handle];
+		} else {
+			if (isTyping.includes(data.handle)) isTyping = isTyping.filter(u => u !== data.handle);
+		}
 	});
 
 	socket.on("message", message => {
 		messages = [...messages, message];
 
 		isTyping = isTyping.filter(u => u !== message.handle);
-
-		console.log(message);
 	});
 
-	function sendIsTyping() {
-		console.log(message);
-		if (message === "") socket.emit("typing", handle);
+	function sendIsTyping(e) {
+		if (!["Tab", "Enter"].includes(e.key) && (!isTypingSent || message === "")) {
+			socket.emit("typing", { handle, isTyping: message !== "" });
+			isTypingSent = message !== "";
+		}
 	}
 
-	function sendMessage() {
+	function sendMessage(e) {
+		e.preventDefault();
+
 		socket.emit("message", { handle, message });
+
+		message = "";
+		isTypingSent = false;
 	}
 </script>
 
