@@ -1,11 +1,14 @@
 <script>
+	import { onMount } from "svelte";
 	import { socket } from "./socket";
 
-	const users = [];
-	let roomId = "teste";
-	let isRoomCreator = false;
+	let id;
+	let users = [];
+	let ip;
+	let isSender = false;
 
-	let files = [];
+	let filesToSend = [];
+	let filesToReceive = [];
 	let sendProgress = 0;
 	let sendProgressMax = 0;
 	let receiveProgress = 0;
@@ -28,43 +31,110 @@
 	const iceServers = {
 		iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }],
 	};
-	let localConnection;
-	let remoteConnection;
+	let rtcPeerConnection;
 	let sendChannel;
 	let receiveChannel;
 	let fileReader;
 
-	async function connect() {
-		localConnection = new RTCPeerConnection(); // iceServers
-		console.log("Created local peer connection object localConnection");
+	socket.on("connect", function () {
+		id = socket.id;
+	});
 
-		sendChannel = localConnection.createDataChannel("sendDataChannel");
-		sendChannel.binaryType = "arraybuffer";
-		console.log("Created send data channel");
+	socket.on("updateUsers", update => {
+		console.log(update);
+		users = update;
+	});
 
-		sendChannel.addEventListener("open", onSendChannelStateChange);
-		sendChannel.addEventListener("close", onSendChannelStateChange);
-		sendChannel.addEventListener("error", onError);
+	socket.on("receiveOffer", async event => {
+		if (!isSender) {
+			console.log("receive offer");
 
-		localConnection.addEventListener("icecandidate", async event => {
-			console.log("Local ICE candidate: ", event.candidate);
-			await remoteConnection.addIceCandidate(event.candidate);
-		});
+			filesToReceive = [event.file];
+			console.log(event, filesToReceive);
+			rtcPeerConnection = new RTCPeerConnection(iceServers);
 
-		remoteConnection = new RTCPeerConnection(); // iceServers
-		console.log("Created remote peer connection object remoteConnection");
+			rtcPeerConnection.addEventListener("icecandidate", sendIceCandidate);
+			rtcPeerConnection.addEventListener("datachannel", receiveChannelCallback);
 
-		remoteConnection.addEventListener("icecandidate", async event => {
-			console.log("Remote ICE candidate: ", event.candidate);
-			await localConnection.addIceCandidate(event.candidate);
-		});
-		remoteConnection.addEventListener("datachannel", receiveChannelCallback);
+			rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event.sdp));
 
-		try {
-			const offer = await localConnection.createOffer();
-			await gotLocalDescription(offer);
-		} catch (e) {
-			console.log("Failed to create session description: ", e);
+			let sessionDescription;
+			try {
+				sessionDescription = await rtcPeerConnection.createAnswer();
+				rtcPeerConnection.setLocalDescription(sessionDescription);
+			} catch (error) {
+				console.error(error);
+			}
+			console.log("send answer");
+			socket.emit("createAnswer", {
+				type: "createAnswer",
+				sdp: sessionDescription,
+				ip,
+			});
+		}
+	});
+
+	socket.on("receiveAnswer", event => {
+		console.log("receive answer");
+		rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event.sdp));
+	});
+
+	socket.on("receiveIceCandidate", event => {
+		console.log("receive ice candidate");
+		if (rtcPeerConnection) {
+			var candidate = new RTCIceCandidate({
+				sdpMLineIndex: event.label,
+				candidate: event.candidate,
+			});
+
+			rtcPeerConnection.addIceCandidate(candidate);
+		}
+	});
+
+	async function connect(event) {
+		if (event.target.files) {
+			filesToSend = event.target.files;
+
+			const file = filesToSend[0];
+
+			rtcPeerConnection = new RTCPeerConnection(iceServers);
+			console.log("Created local peer connection object rtcPeerConnection");
+
+			sendChannel = rtcPeerConnection.createDataChannel("sendDataChannel");
+			sendChannel.binaryType = "arraybuffer";
+			console.log("Created send data channel");
+
+			sendChannel.addEventListener("open", onSendChannelStateChange);
+			sendChannel.addEventListener("close", onSendChannelStateChange);
+			sendChannel.addEventListener("error", onError);
+
+			rtcPeerConnection.addEventListener("icecandidate", sendIceCandidate);
+
+			let sessionDescription;
+			try {
+				sessionDescription = await rtcPeerConnection.createOffer();
+				rtcPeerConnection.setLocalDescription(sessionDescription);
+			} catch (e) {
+				console.log("Failed to create session description: ", e);
+			}
+			console.log("send offer");
+			socket.emit("createOffer", {
+				type: "createOffer",
+				sdp: sessionDescription,
+				ip,
+				file: { name: file.name, size: file.size },
+			});
+		}
+	}
+
+	function sendIceCandidate(event) {
+		if (event.candidate) {
+			console.log("send ice candidate");
+			socket.emit("sendIceCandidate", {
+				ip,
+				label: event.candidate.sdpMLineIndex,
+				candidate: event.candidate.candidate,
+			});
 		}
 	}
 
@@ -101,14 +171,14 @@
 	}
 
 	function onReceiveMessageCallback(event) {
+		const file = filesToReceive[0];
+
 		console.log(`Received Message ${event.data.byteLength}`);
 		receiveBuffer.push(event.data);
 		receivedSize += event.data.byteLength;
 		receiveProgress = receivedSize;
+		receiveProgressMax = file.size;
 
-		// we are assuming that our signaling protocol told
-		// about the expected file size (and name, hash, etc).
-		const file = files[0];
 		if (receivedSize === file.size) {
 			const received = new Blob(receiveBuffer);
 			receiveBuffer = [];
@@ -128,26 +198,8 @@
 		}
 	}
 
-	async function gotLocalDescription(desc) {
-		await localConnection.setLocalDescription(desc);
-		console.log(`Offer from localConnection\n ${desc.sdp}`);
-		await remoteConnection.setRemoteDescription(desc);
-		try {
-			const answer = await remoteConnection.createAnswer();
-			await gotRemoteDescription(answer);
-		} catch (e) {
-			console.log("Failed to create session description: ", e);
-		}
-	}
-
-	async function gotRemoteDescription(desc) {
-		await remoteConnection.setLocalDescription(desc);
-		console.log(`Answer from remoteConnection\n ${desc.sdp}`);
-		await localConnection.setRemoteDescription(desc);
-	}
-
 	function sendData() {
-		const file = files[0];
+		const file = filesToSend[0];
 		console.log(`File is ${[file.name, file.size, file.type, file.lastModified].join(" ")}`);
 
 		// Handle 0 size files.
@@ -160,7 +212,6 @@
 			return;
 		}
 		sendProgressMax = file.size;
-		receiveProgressMax = file.size;
 		const chunkSize = 16384;
 		fileReader = new FileReader();
 		let offset = 0;
@@ -197,8 +248,8 @@
 	}
 
 	async function displayStats() {
-		if (remoteConnection && remoteConnection.iceConnectionState === "connected") {
-			const stats = await remoteConnection.getStats();
+		if (rtcPeerConnection && rtcPeerConnection.iceConnectionState === "connected") {
+			const stats = await rtcPeerConnection.getStats();
 			let activeCandidatePair;
 			stats.forEach(report => {
 				if (report.type === "transport") {
@@ -223,36 +274,58 @@
 
 	function closeDataChannels() {
 		console.log("Closing data channels");
-		sendChannel.close();
-		console.log(`Closed data channel with label: ${sendChannel.label}`);
-		sendChannel = null;
+
+		if (sendChannel) {
+			sendChannel.close();
+			console.log(`Closed data channel with label: ${sendChannel.label}`);
+			sendChannel = null;
+		}
+
 		if (receiveChannel) {
 			receiveChannel.close();
 			console.log(`Closed data channel with label: ${receiveChannel.label}`);
 			receiveChannel = null;
 		}
-		localConnection.close();
-		remoteConnection.close();
-		localConnection = null;
-		remoteConnection = null;
+
+		rtcPeerConnection.close();
+		rtcPeerConnection = null;
 		console.log("Closed peer connections");
 
 		// re-enable the file select
-		files = [];
+		filesToSend = [];
 	}
+
+	async function init() {
+		const res = await fetch("https://api.ipify.org/?format=json");
+
+		const json = await res.json();
+
+		ip = json.ip;
+
+		socket.emit("connected", json.ip);
+	}
+
+	onMount(init);
 </script>
 
 <div>
-	<ul>
-		{#each users as user, index}
-			<li key={u} onClick={() => callUser(u)}>
-				{u}
-			</li>
+	{id}
+	Users
+	<ul class="users">
+		{#each users as user}
+			{#if user !== id}
+				<li key={user}>
+					<label>
+						<input type="file" on:input={connect} />
+						{user}
+					</label>
+				</li>
+			{/if}
 		{/each}
 	</ul>
-	<form id="fileInfo" on:submit={connect}>
-		<input type="file" on:input={event => (files = event.target.files)} />
-		<button disabled={!files.length} id="sendFile">Send</button>
+	<form on:submit={connect}>
+		<input type="file" on:input={event => (filesToSend = event.target.files)} />
+		<button disabled={!filesToSend.length} id="sendFile">Send</button>
 	</form>
 	<div>
 		Send progress:
@@ -266,3 +339,11 @@
 	<a href={link} download={fileName}>{download}</a>
 	<span>{status}</span>
 </div>
+
+<style lang="scss">
+	.users {
+		input[type="file"] {
+			display: none;
+		}
+	}
+</style>
