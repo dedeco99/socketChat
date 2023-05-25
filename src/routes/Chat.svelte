@@ -1,5 +1,5 @@
 <script>
-	import { io } from "socket.io-client";
+	import { socket } from "./socket";
 
 	let animate = false;
 	let messages = [];
@@ -7,8 +7,6 @@
 	let handle = "";
 	let isTyping = [];
 	let isTypingSent = false;
-
-	const socket = io();
 
 	socket.on("typing", data => {
 		if (data.isTyping) {
@@ -56,16 +54,18 @@
 </script>
 
 <div id="chat" class="chatContainer">
-	<div class="chat">
-		{#each messages as message, index}
-			<div
-				class="message {index === messages.length - 1 && animate ? 'animate' : ''} {message.handle === handle
-					? 'right'
-					: ''}"
-			>
-				{message.handle}: {message.message}
-			</div>
-		{/each}
+	<div class="chatWrapper">
+		<div class="chat">
+			{#each messages as message, index}
+				<div
+					class="message {index === messages.length - 1 && animate ? 'animate' : ''} {message.handle === handle
+						? 'right'
+						: ''}"
+				>
+					{message.handle}: {message.message}
+				</div>
+			{/each}
+		</div>
 	</div>
 </div>
 <form class="promptContainer" on:submit={sendMessage}>
@@ -97,12 +97,17 @@
 		@include containerBox;
 
 		height: 100%;
+		max-height: 100%;
 		overflow: auto;
 		display: flex;
-		justify-content: flex-end;
+		align-items: flex-end;
+
+		.chatWrapper {
+			flex: 1;
+			max-height: 100%;
+		}
 
 		.chat {
-			width: 100%;
 			display: flex;
 			flex-direction: column;
 			justify-content: flex-end;

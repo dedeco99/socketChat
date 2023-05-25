@@ -1,5 +1,6 @@
 <script>
 	import Chat from "./Chat.svelte";
+	import FileTransfer from "./FileTransfer.svelte";
 </script>
 
 <svelte:head>
@@ -12,6 +13,7 @@
 		<h1>RabbitChat</h1>
 	</header>
 	<main>
+		<FileTransfer />
 		<Chat />
 	</main>
 </section>
