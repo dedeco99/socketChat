@@ -1,10 +1,12 @@
 <script>
 	import { socket } from "./socket";
 
+	export let handle;
+
 	let animate = false;
 	let messages = [];
 	let message = "";
-	let handle = "";
+
 	let isTyping = [];
 	let isTypingSent = false;
 
@@ -69,7 +71,6 @@
 	</div>
 </div>
 <form class="promptContainer" on:submit={sendMessage}>
-	<input id="handle" class="prompt" type="text" placeholder="Handle" bind:value={handle} />
 	<input
 		id="message"
 		class="prompt"
@@ -78,7 +79,6 @@
 		bind:value={message}
 		on:keyup={sendIsTyping}
 	/>
-	<button type="submit">Send</button>
 </form>
 {#if isTyping.length}
 	{isTyping.join(", ")}
@@ -87,10 +87,8 @@
 
 <style lang="scss">
 	@mixin containerBox {
-		width: 600px;
 		background: #444;
 		border-radius: 5px;
-		margin: 5px 0px;
 	}
 
 	.chatContainer {
@@ -146,20 +144,14 @@
 	}
 
 	.promptContainer {
-		display: flex;
-		align-items: center;
-		position: relative;
+		margin-top: 10px;
 
 		input {
 			@include containerBox;
 
+			width: 99%;
 			color: white;
 			font-size: 1.25em;
-			margin-right: 10px;
-		}
-
-		.prompt {
-			width: var(--width);
 		}
 	}
 

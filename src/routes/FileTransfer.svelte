@@ -1,10 +1,12 @@
 <script>
-	import { onMount } from "svelte";
 	import { socket } from "./socket";
 
-	let id;
-	let users = [];
-	let ip;
+	export let id;
+	export let users;
+
+	let showUsers = false;
+
+	let to;
 	let isSender = false;
 
 	let filesToSend = [];
@@ -36,16 +38,13 @@
 	let receiveChannel;
 	let fileReader;
 
-	socket.on("connect", function () {
-		id = socket.id;
-	});
-
-	socket.on("updateUsers", update => {
-		console.log(update);
-		users = update;
-	});
+	function toggleUsers() {
+		showUsers = !showUsers;
+	}
 
 	socket.on("receiveOffer", async event => {
+		to = event.from;
+
 		if (!isSender) {
 			console.log("receive offer");
 
@@ -68,8 +67,9 @@
 			console.log("send answer");
 			socket.emit("createAnswer", {
 				type: "createAnswer",
+				from: id,
+				to,
 				sdp: sessionDescription,
-				ip,
 			});
 		}
 	});
@@ -91,7 +91,9 @@
 		}
 	});
 
-	async function connect(event) {
+	async function connect(user, event) {
+		to = user;
+
 		if (event.target.files) {
 			filesToSend = event.target.files;
 
@@ -120,8 +122,9 @@
 			console.log("send offer");
 			socket.emit("createOffer", {
 				type: "createOffer",
+				from: id,
+				to,
 				sdp: sessionDescription,
-				ip,
 				file: { name: file.name, size: file.size },
 			});
 		}
@@ -131,7 +134,8 @@
 		if (event.candidate) {
 			console.log("send ice candidate");
 			socket.emit("sendIceCandidate", {
-				ip,
+				from: id,
+				to,
 				label: event.candidate.sdpMLineIndex,
 				candidate: event.candidate.candidate,
 			});
@@ -294,48 +298,39 @@
 		// re-enable the file select
 		filesToSend = [];
 	}
-
-	async function init() {
-		const res = await fetch("https://api.ipify.org/?format=json");
-
-		const json = await res.json();
-
-		ip = json.ip;
-
-		socket.emit("connected", json.ip);
-	}
-
-	onMount(init);
 </script>
 
 <div>
-	{id}
-	Users
-	<ul class="users">
-		{#each users as user}
-			{#if user !== id}
-				<li key={user}>
-					<label>
-						<input type="file" on:input={connect} />
-						{user}
-					</label>
-				</li>
-			{/if}
-		{/each}
-	</ul>
-	<form on:submit={connect}>
-		<input type="file" on:input={event => (filesToSend = event.target.files)} />
-		<button disabled={!filesToSend.length} id="sendFile">Send</button>
-	</form>
-	<div>
-		Send progress:
-		<progress max={sendProgressMax} value={sendProgress} />
-	</div>
-	<div>
-		Receive progress:
-		<progress max={receiveProgressMax} value={receiveProgress} />
-	</div>
-	<div id="bitrate"><strong>Current Bitrate:</strong> {bitrate} kbits/sec</div>
+	<button on:click={toggleUsers}>File Transfer</button>
+	{#if showUsers}
+		<ul class="users">
+			{#each users as user}
+				{#if user.id !== id}
+					<li key={user.id}>
+						<label>
+							<input type="file" on:input={event => connect(user.id, event)} />
+							{user.handle}
+						</label>
+					</li>
+				{/if}
+			{/each}
+		</ul>
+	{/if}
+	{#if sendProgress}
+		<div>
+			Send progress:
+			<progress max={sendProgressMax} value={sendProgress} />
+		</div>
+	{/if}
+	{#if receiveProgress}
+		<div>
+			Receive progress:
+			<progress max={receiveProgressMax} value={receiveProgress} />
+		</div>
+	{/if}
+	{#if bitrate}
+		<div id="bitrate"><strong>Current Bitrate:</strong> {bitrate} kbits/sec</div>
+	{/if}
 	<a href={link} download={fileName}>{download}</a>
 	<span>{status}</span>
 </div>
