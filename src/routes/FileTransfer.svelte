@@ -329,7 +329,7 @@
 		</div>
 	{/if}
 	{#if bitrate}
-		<div id="bitrate"><strong>Current Bitrate:</strong> {bitrate} kbits/sec</div>
+		<strong>Current Bitrate:</strong> {bitrate} kbits/sec
 	{/if}
 	<a href={link} download={fileName}>{download}</a>
 	<span>{status}</span>

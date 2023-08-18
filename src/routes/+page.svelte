@@ -7,9 +7,29 @@
 	let id;
 	let handle;
 	let users = [];
+	let rooms = [];
+
+	let dialog;
+	let room = "";
 
 	function changeHandle() {
 		socket.emit("changeHandle", handle);
+	}
+
+	function createRoom() {
+		joinRoom(room);
+
+		dialog.close();
+
+		room = "";
+	}
+
+	function deleteRoom(room) {
+		socket.emit("deleteRoom", room);
+	}
+
+	function joinRoom(room) {
+		socket.emit("joinRoom", room);
 	}
 
 	socket.on("connect", function () {
@@ -18,7 +38,11 @@
 	});
 
 	socket.on("updateUsers", update => {
-		users = Object.entries(update).map(([id, { handle }]) => ({ id, handle }));
+		users = Object.entries(update).map(([id, { handle, rooms }]) => ({ id, handle, rooms }));
+	});
+
+	socket.on("updateRooms", update => {
+		rooms = update;
 	});
 </script>
 
@@ -33,12 +57,13 @@
 	</header>
 	<main>
 		<div class="usersContainer">
-			<form on:submit={changeHandle}>
-				<input id="handle" type="text" placeholder="Handle" bind:value={handle} />
+			<form class="handleContainer" on:submit={changeHandle}>
+				<input type="text" placeholder="Handle" bind:value={handle} />
 				<button on:click={changeHandle}>Change</button>
 			</form>
+			<hr />
 			Users
-			<ul class="users">
+			<ul>
 				{#each users as user}
 					{#if user.id !== id}
 						<li key={user.id}>
@@ -47,11 +72,33 @@
 					{/if}
 				{/each}
 			</ul>
+			<hr />
+			Rooms
+			<button on:click={() => dialog.showModal()}>+</button>
+			<ul>
+				{#each rooms as room}
+					<li key={room.id}>
+						<button on:click={() => joinRoom(room.id)} disabled={room.users.includes(id)}>{room.id}</button>
+						{#if room.users.includes(id)}
+							<button on:click={() => deleteRoom(room.id)}>-</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+			<hr />
 			<FileTransfer {id} {users} />
 		</div>
 		<div class="chatContainer">
 			<Chat {handle} />
 		</div>
+		<dialog bind:this={dialog}>
+			Create Room
+			<br />
+			<input bind:value={room} placeholder="Name" />
+			<br />
+			<button on:click={createRoom}>Create</button>
+			<button on:click={() => dialog.close()}>Close</button>
+		</dialog>
 	</main>
 </section>
 

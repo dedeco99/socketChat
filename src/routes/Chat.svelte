@@ -71,14 +71,7 @@
 	</div>
 </div>
 <form class="promptContainer" on:submit={sendMessage}>
-	<input
-		id="message"
-		class="prompt"
-		type="text"
-		placeholder="Message"
-		bind:value={message}
-		on:keyup={sendIsTyping}
-	/>
+	<input class="prompt" type="text" placeholder="Message" bind:value={message} on:keyup={sendIsTyping} />
 </form>
 {#if isTyping.length}
 	{isTyping.join(", ")}

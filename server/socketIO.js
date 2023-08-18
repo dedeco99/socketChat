@@ -2,6 +2,15 @@ import { Server } from "socket.io";
 
 const sockets = {};
 
+function getRooms(io) {
+	const rooms = [];
+	for (const [key, value] of io.sockets.adapter.rooms) {
+		if (!sockets[key]) rooms.push({ id: key, users: Array.from(value) });
+	}
+
+	return rooms;
+}
+
 export default function injectSocketIO(server) {
 	const io = new Server(server);
 
@@ -11,6 +20,8 @@ export default function injectSocketIO(server) {
 		sockets[socket.id] = { handle: socket.id };
 
 		io.emit("updateUsers", sockets);
+
+		io.emit("updateRooms", getRooms(io));
 
 		socket.on("disconnecting", () => {
 			console.log("Disconnected", socket.id);
@@ -29,9 +40,19 @@ export default function injectSocketIO(server) {
 		socket.on("joinRoom", room => {
 			socket.join(room);
 
-			const users = Array.from(io.sockets.adapter.rooms.get(room));
+			io.emit("updateRooms", getRooms(io));
+		});
 
-			io.to(room).emit("updateUsers", users);
+		socket.on("leaveRoom", room => {
+			socket.leave(room);
+
+			io.emit("updateRooms", getRooms(io));
+		});
+
+		socket.on("deleteRoom", room => {
+			io.socketsLeave(room);
+
+			io.emit("updateRooms", getRooms(io));
 		});
 
 		// Chat
