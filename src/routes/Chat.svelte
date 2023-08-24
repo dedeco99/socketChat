@@ -2,6 +2,7 @@
 	import { socket } from "./socket";
 
 	export let handle;
+	export let room;
 
 	let animate = false;
 	let messages = [];
@@ -31,7 +32,7 @@
 
 	function sendIsTyping(e) {
 		if (!["Tab", "Enter"].includes(e.key) && (!isTypingSent || message === "")) {
-			socket.emit("typing", { handle, isTyping: message !== "" });
+			socket.emit("typing", { handle, room, isTyping: message !== "" });
 			isTypingSent = message !== "";
 		}
 	}
@@ -39,7 +40,7 @@
 	function sendMessage(e) {
 		e.preventDefault();
 
-		socket.emit("message", { handle, message });
+		socket.emit("message", { handle, room, message });
 
 		message = "";
 		isTypingSent = false;
@@ -71,7 +72,14 @@
 	</div>
 </div>
 <form class="promptContainer" on:submit={sendMessage}>
-	<input class="prompt" type="text" placeholder="Message" bind:value={message} on:keyup={sendIsTyping} />
+	<input
+		class="prompt"
+		type="text"
+		placeholder={room ? "Message" : "Join a room first"}
+		disabled={!room}
+		bind:value={message}
+		on:keyup={sendIsTyping}
+	/>
 </form>
 {#if isTyping.length}
 	{isTyping.join(", ")}

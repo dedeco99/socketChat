@@ -57,11 +57,11 @@ export default function injectSocketIO(server) {
 
 		// Chat
 		socket.on("typing", data => {
-			socket.broadcast.emit("typing", data);
+			socket.broadcast.to(data.room).emit("typing", data);
 		});
 
 		socket.on("message", message => {
-			io.emit("message", message);
+			io.to(message.room).emit("message", message);
 		});
 
 		// File Transfer

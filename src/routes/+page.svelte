@@ -6,29 +6,32 @@
 
 	let id;
 	let handle;
+	let room;
 	let users = [];
 	let rooms = [];
 
 	let dialog;
-	let room = "";
+	let roomName = "";
 
 	function changeHandle() {
 		socket.emit("changeHandle", handle);
 	}
 
 	function createRoom() {
-		joinRoom(room);
+		joinRoom(roomName);
 
 		dialog.close();
 
-		room = "";
+		roomName = "";
 	}
 
 	function deleteRoom(room) {
 		socket.emit("deleteRoom", room);
 	}
 
-	function joinRoom(room) {
+	function joinRoom(r) {
+		room = r;
+
 		socket.emit("joinRoom", room);
 	}
 
@@ -89,12 +92,12 @@
 			<FileTransfer {id} {users} />
 		</div>
 		<div class="chatContainer">
-			<Chat {handle} />
+			<Chat {handle} {room} />
 		</div>
 		<dialog bind:this={dialog}>
 			Create Room
 			<br />
-			<input bind:value={room} placeholder="Name" />
+			<input bind:value={roomName} placeholder="Name" />
 			<br />
 			<button on:click={createRoom}>Create</button>
 			<button on:click={() => dialog.close()}>Close</button>
